@@ -3,11 +3,11 @@ use lib $?FILE.IO.parent(2).add: 'packages';
 use Test;
 use Test::Util;
 
+todo 'Requires https://github.com/rakudo/rakudo/pull/1812';
 
 my sub gen-dist-files(%d) {
-    my &to-json := -> $o { Rakudo::Internals::JSON.to-json($o) }
     my $dist-dir = make-temp-dir;
-    $dist-dir.IO.child('META6.json').spurt(to-json(%d));
+    $dist-dir.IO.child('META6.json').spurt(%d.to-json);
     for %d<provides>.grep(*.defined) {
         my $to = $dist-dir.IO.child(.value) andthen {.parent.mkdir unless .parent.e}
         $to.spurt: (qq|unit module {.key}; | ~ q|our sub source-file is export { $?FILE }|);
@@ -34,8 +34,38 @@ my sub dependencyspecification(%_) {
 
 
 subtest 'Basic recommendation manager queries' => {
-    my %meta1      = %( :perl<6.c>, :name<XXX>, :ver<1>, :api<1>, :auth<foo>, :provides(:XXX<lib/XXX.pm6>) );
-    my %meta2      = %( :perl<6.c>, :name<XXX>, :ver<1>, :api<2>, :auth<bar>, :provides(:XXX<lib/XXX.pm6>) );
+    my %meta1 = %( :perl<6.c>, :name<XXX>, :ver<1>, :api<1>, :auth<foo>, :provides(:XXX<lib/XXX.pm6>) );
+    %meta1 does role :: {
+        has $.to-json = q:to/END_JSON/
+            {
+                "perl" : "6.c",
+                "name" : "XXX",
+                "ver"  : "1",
+                "api"  : "1",
+                "auth" : "foo",
+                "provides" : {
+                    "XXX" : "lib/XXX.pm6"
+                }
+            }
+            END_JSON
+    }
+
+    my %meta2 = %( :perl<6.c>, :name<XXX>, :ver<1>, :api<2>, :auth<bar>, :provides(:XXX<lib/XXX.pm6>) );
+    %meta2 does role :: {
+        has $.to-json = q:to/END_JSON/
+            {
+                "perl" : "6.c",
+                "name" : "XXX",
+                "ver"  : "1",
+                "api"  : "2",
+                "auth" : "bar",
+                "provides" : {
+                    "XXX" : "lib/XXX.pm6"
+                }
+            }
+            END_JSON
+    }
+
     my $dist1-dir  = gen-dist-files(%meta1);
     my $dist2-dir  = gen-dist-files(%meta2);
     my $cuspec1    = dependencyspecification(%meta1);
@@ -119,18 +149,23 @@ subtest 'Basic recommendation manager queries' => {
 
     subtest '::FileSystem distributions can usually be installed to ::Installation' => {
         # Also tests resources/libraries/* platform-library-name
-        my %meta = %(
-            perl => '6.c',
-            name => 'XXX::Old',
-            auth => 'foo',
-            provides => {
-                'XXX' => 'lib/XXX.pm6',
-            },
-            resources => [
-                'config.txt',
-                'libraries/foo'
-            ],
-        );
+        my %meta = %( :perl<6.c>, :name<XXX::Old>, :auth<foo>, :provides(:XXX<lib/XXX.pm6>), :resources(<config.txt libraries/foo>) );
+        %meta does role :: {
+            has $.to-json = q:to/END_JSON/;
+                {
+                    "perl" : "6.c",
+                    "name" : "XXX::Old",
+                    "auth" : "foo",
+                    "provides" : {
+                        "XXX" : "lib/XXX.pm6"
+                    },
+                    "resources" : [
+                        "config.txt",
+                        "libraries/foo"
+                    ]
+                }
+                END_JSON
+        }
 
         # Try with a META6.json (-I.) and without a META6.json (-Ilib)
         for gen-dist-files(%meta).absolute, gen-dist-files(%meta).child('lib').absolute -> $prefix {
