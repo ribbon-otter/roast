@@ -151,7 +151,7 @@ subtest 'Basic recommendation manager queries' => {
         # Also tests resources/libraries/* platform-library-name
         my %meta = %( :perl<6.c>, :name<XXX::Old>, :auth<foo>, :provides(:XXX<lib/XXX.pm6>), :resources(<config.txt libraries/foo>) );
         %meta does role :: {
-            has $.to-json = q:to/END_JSON/;
+            has $.to-json = q:to/END_JSON/
                 {
                     "perl" : "6.c",
                     "name" : "XXX::Old",
